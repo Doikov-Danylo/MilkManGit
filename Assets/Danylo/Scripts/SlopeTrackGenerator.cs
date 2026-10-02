@@ -5,7 +5,8 @@ using UnityEngine;
 public class SlopeTrackGenerator : MonoBehaviour
 {
     [Header("Prefabs & Tracking")]
-    [SerializeField] private RoadSegment roadSegmentPrefab;
+    [Tooltip("Add your 3 road segment prefabs here (Element 0 will be the clean starting piece)")]
+    [SerializeField] private RoadSegment[] roadPrefabs = new RoadSegment[3];
     [SerializeField] private Transform bikeTransform;
 
     [Header("Spawn Settings")]
@@ -20,22 +21,22 @@ public class SlopeTrackGenerator : MonoBehaviour
     [Tooltip("Meters traveled to reach max steepness")]
     [SerializeField] private float distanceToMaxSlope = 2000f;
 
-    private readonly Queue<RoadSegment> _activeSegments = new Queue<RoadSegment>();
+    private readonly Queue _activeSegments = new Queue();
     private Transform _lastEndPoint;
     private float _totalDistanceTravelled = 0f;
 
     private void Start()
     {
-        if (roadSegmentPrefab == null)
+        if (roadPrefabs == null || roadPrefabs.Length == 0)
         {
-            Debug.LogError("[SlopeTrackGenerator] Assign roadSegmentPrefab in the Inspector!", this);
+            Debug.LogError("[SlopeTrackGenerator] Assign your road prefabs in the Inspector!", this);
             return;
         }
 
-        // Generate the initial runway
+        // Spawn initial runway
         for (int i = 0; i < activeSegmentsCount; i++)
         {
-            SpawnNextSegment();
+            SpawnNextSegment(isFirstRunway: i < 3);
         }
     }
 
@@ -43,28 +44,45 @@ public class SlopeTrackGenerator : MonoBehaviour
     {
         if (bikeTransform == null || _lastEndPoint == null) return;
 
-        // Keep a minimum buffer of segments ahead of the bike
         float distanceToEnd = Vector3.Distance(bikeTransform.position, _lastEndPoint.position);
-        float safeBufferDistance = segmentLength * 6f; // Always keep ~6 segments ahead
+        float safeBufferDistance = segmentLength * 6f;
 
         if (distanceToEnd < safeBufferDistance)
         {
-            SpawnNextSegment();
+            SpawnNextSegment(isFirstRunway: false);
         }
 
-        // Only cleanup segments that are WELL behind the bike
         CleanUpOldSegmentsBehindBike();
     }
 
-    private void SpawnNextSegment()
+    private void SpawnNextSegment(bool isFirstRunway)
     {
+        // Pick prefab: force element 0 for initial pieces, otherwise pick randomly from the 3
+        RoadSegment selectedPrefab;
+        if (isFirstRunway || roadPrefabs.Length == 1)
+        {
+            selectedPrefab = roadPrefabs[0];
+        }
+        else
+        {
+            int randomIndex = Random.Range(0, roadPrefabs.Length);
+            selectedPrefab = roadPrefabs[randomIndex];
+        }
+
+        if (selectedPrefab == null)
+        {
+            Debug.LogWarning("[SlopeTrackGenerator] A slot in roadPrefabs array is empty!");
+            return;
+        }
+
+        // Calculate slope pitch
         float progress = Mathf.Clamp01(_totalDistanceTravelled / distanceToMaxSlope);
         float currentAngle = Mathf.Lerp(minPitchAngle, maxPitchAngle, progress);
         Quaternion targetRotation = Quaternion.Euler(currentAngle, 0f, 0f);
 
         Vector3 spawnPosition = (_lastEndPoint == null) ? Vector3.zero : _lastEndPoint.position;
 
-        RoadSegment newSegment = Instantiate(roadSegmentPrefab, spawnPosition, targetRotation);
+        RoadSegment newSegment = Instantiate(selectedPrefab, spawnPosition, targetRotation);
 
         if (_lastEndPoint == null)
         {
@@ -80,21 +98,19 @@ public class SlopeTrackGenerator : MonoBehaviour
 
     private void CleanUpOldSegmentsBehindBike()
     {
-        // Don't cull if we have too few segments
         if (_activeSegments.Count <= activeSegmentsCount) return;
 
-        RoadSegment oldest = _activeSegments.Peek();
+        RoadSegment oldest = _activeSegments.Peek() as RoadSegment;
         if (oldest == null)
         {
             _activeSegments.Dequeue();
             return;
         }
 
-        // Safe cleanup: only destroy when the bike has traveled at least 25m PAST the segment's end
         if (bikeTransform.position.z > oldest.EndPoint.position.z + 25f)
         {
-            _activeSegments.Dequeue();
-            Destroy(oldest.gameObject);
+            RoadSegment removed = _activeSegments.Dequeue() as RoadSegment;
+            Destroy(removed.gameObject);
         }
     }
 }
