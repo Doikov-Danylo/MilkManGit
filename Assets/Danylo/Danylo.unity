@@ -168,7 +168,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef9aa09d187f983468e184dd767d0bb0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SlopeTrackGenerator
-  roadSegmentPrefab: {fileID: 5119132595521580353, guid: 0989338c26322094086cf67d1a5a7564, type: 3}
+  roadPrefabs:
+  - {fileID: 5119132595521580353, guid: 0989338c26322094086cf67d1a5a7564, type: 3}
+  - {fileID: 5119132595521580353, guid: a73bc9e48abcb12468f1b316c1c6cc9d, type: 3}
+  - {fileID: 5119132595521580353, guid: 4044ef01b450427458a5d2952cdf4f71, type: 3}
   bikeTransform: {fileID: 1557259669}
   activeSegmentsCount: 15
   segmentLength: 20
